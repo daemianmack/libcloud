@@ -213,7 +213,7 @@ class CloudFilesStorageDriver(StorageDriver, OpenStackDriverMixin):
     """
     Base CloudFiles driver.
 
-    You should never create an instance of this class directly but use US/US
+    You should never create an instance of this class directly but use US/UK
     class.
     """
     name = 'CloudFiles'
