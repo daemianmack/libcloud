@@ -19,6 +19,10 @@ from libcloud.compute.base import Node, NodeDriver, NodeImage, NodeLocation, \
                                   NodeSize
 from libcloud.compute.types import NodeState
 
+import urllib2
+
+class CloudStackException(Exception):
+    pass
 
 class CloudStackNode(Node):
     "Subclass of Node so we can expose our extension methods."
@@ -302,3 +306,36 @@ class CloudStackNodeDriver(CloudStackDriverMixIn, NodeDriver):
         node.extra['ip_forwarding_rules'].remove(rule)
         self._async_request('deleteIpForwardingRule', id=rule.id)
         return True
+
+    def ex_register_iso(self, name, url, location=None, **kwargs):
+        "Registers an existing ISO by URL."
+
+        def exhaust_redirects(url, count=20):
+            "Strip redirects off URL up-front; CloudStack won't."
+            # .geturl will cause a canonical URL to return itself.
+            _ = urllib2.urlopen(url).geturl()
+            if  _ == url or count == 0:
+                return _
+            return exhaust_redirects(_, count-1)
+
+        extra_args = {}
+
+        url = exhaust_redirects(url)
+
+        if location is None:
+            location = self.list_locations()[0]
+
+        extra_args['bootable'] = kwargs.pop("bootable", False)
+        if extra_args['bootable']:
+            try:
+                extra_args['ostypeid'] = kwargs.pop("ostypeid")
+            except KeyError:
+                raise CloudStackException("If bootable=True, ostypeid is required!")
+            
+        return self._sync_request('registerIso',
+                                  name=name,
+                                  displaytext=name,
+                                  url=url,
+                                  zoneid=location.id,
+                                  **extra_args)
+
